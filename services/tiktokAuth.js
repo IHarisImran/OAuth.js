@@ -4,7 +4,7 @@ const oauthClientSecret = require("../secrets/tiktok-oauth-client-secret.json"),
     { createHash } = require('node:crypto');
 
 const { clientKey, clientSecret, redirectURL } = oauthClientSecret,
-    requiredScopes = ["video.publish", "video.upload"];
+    requiredScopes = []; // Array of strings of the scopes.
 
 // This function refreshes the tokens
 const _refreshToken = async tokens => {
@@ -63,18 +63,19 @@ const _refreshToken = async tokens => {
 // This functions checks if token is expired or not.
 const _checkIfTikTokTokensAreExpired = async ({ tokenExpiry, refreshExpiry, refreshToken }) => {
     try {
-        // 0: token not expired || 1: token is expired
-
-        let statusCode = 0;
+        let newToken;
         const now = Date.now();
 
         if (now > tokenExpiry) {
-            statusCode = 1;
-            if (!refreshToken) throw new Error("Refresh token is missing to renew the expired token.");
-            if (now > refreshExpiry) throw new Error("Login required.");
+            if (!refreshToken) throw new Error("Refresh token is missing to renew the expired token.")
+            else {
+                const { success, response } = await _refreshToken({ refreshToken });
+                if (!success) throw new Error(response);
+                newToken = response.access_token;
+            };
         };
 
-        return { success: true, response: statusCode };
+        return { success: true, response: newToken };
     } catch (err) {
         console.log(err);
         return { success: false, response: err.message };

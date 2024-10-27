@@ -4,20 +4,20 @@ const { google } = require('googleapis'),
     oauthClientSecret = require("../secrets/gcp-oauth-client-secret.json");
 
 const { web: { client_id, client_secret, redirect_uris: [liveRedirectURL, localRedirectURL] } } = oauthClientSecret,
-    oAuth2Client = new google.auth.OAuth2(client_id, client_secret, process.env.NODE_ENV == "development" ? localRedirectURL : liveRedirectURL),
-    requiredScope = ["https://www.googleapis.com/auth/youtube.upload", "https://www.googleapis.com/auth/youtube.readonly"];
+    oAuth2Client = new google.auth.OAuth2(client_id, client_secret, NODE_ENV == "development" ? localRedirectURL : liveRedirectURL),
+    requiredScope = []; // Array of strings of the scopes.
 
 // This function refreshes the token
 const _refreshToken = async prevTokens => {
     return new Promise((resolve, reject) => {
-        oAuth2Client.setCredentials(prevTokens);
+        oAuth2Client.setCredentials({ access_token: prevTokens.accessToken, refresh_token: prevTokens.refreshToken });
         oAuth2Client.refreshAccessToken(async (err, tokens) => {
             if (err) {
                 console.log(err);
                 return resolve({ success: false, response: "Failed to refresh the token." });
             };
 
-            console.log(tokens) // these are refreshed tokens. Returns same object as received while verifying auth redirect code
+            console.log(tokens) // these are refreshed tokens. Returns same object as received while verifying auth redirect code.
 
             return resolve({ success: true, response: tokens });
         });
@@ -25,17 +25,17 @@ const _refreshToken = async prevTokens => {
 };
 
 // This functions checks if token is expired or not.
-const _checkIfYouTubeTokensAreExpired = async ({ tokenExpiry, refreshToken }) => {
+const _checkIfYouTubeTokensAreExpired = async ({ tokenExpiry, refreshToken, accessToken }) => {
     try {
-        // 0: token not expired || 1: token is expired
-        let statusCode = 0;
-
         if (tokenExpiry <= Date.now()) {
-            statusCode = 1;
-            if (!refreshToken) throw new Error("Refresh token is missing to renew the expired token.");
+            if (!refreshToken) throw new Error("Refresh token is missing to renew the expired token.")
+            else {
+                const { success, response } = await _refreshToken({ refreshToken, accessToken });
+                if (!success) throw new Error(response);
+            };
         };
 
-        return { success: true, response: statusCode };
+        return { success: true, response: null };
     } catch (err) {
         console.log(err);
         return { success: false, response: err.message };
